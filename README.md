@@ -96,18 +96,18 @@ $$
 Single-mode ADE:
 
 $$
-\operatorname{ADE}
+\mathrm{ADE}
 = \frac{1}{T}\sum_{t=1}^{T}
-\left\lVert \hat{y}_t - y_t \right\rVert_2
+\left\| \hat{y}_t - y_t \right\|_2
 $$
 
 Multimodal minimum ADE:
 
 $$
-\operatorname{minADE}_K
+\mathrm{minADE}_K
 = \min_{k \in \{1,\ldots,K\}}
 \frac{1}{T}\sum_{t=1}^{T}
-\left\lVert \hat{y}^{(k)}_t - y_t \right\rVert_2
+\left\| \hat{y}^{(k)}_t - y_t \right\|_2
 $$
 
 ### Final Displacement Error
@@ -115,16 +115,16 @@ $$
 Single-mode FDE:
 
 $$
-\operatorname{FDE}
-= \left\lVert \hat{y}_T - y_T \right\rVert_2
+\mathrm{FDE}
+= \left\| \hat{y}_T - y_T \right\|_2
 $$
 
 Multimodal minimum FDE:
 
 $$
-\operatorname{minFDE}_K
+\mathrm{minFDE}_K
 = \min_{k \in \{1,\ldots,K\}}
-\left\lVert \hat{y}^{(k)}_T - y_T \right\rVert_2
+\left\| \hat{y}^{(k)}_T - y_T \right\|_2
 $$
 
 ### Miss Rate
@@ -185,7 +185,7 @@ $$
 The miss rate over $N$ validation samples is:
 
 $$
-\operatorname{MR}
+\mathrm{MR}
 = \frac{1}{N}\sum_{i=1}^{N} m_i
 $$
 
@@ -194,8 +194,8 @@ If final yaw/speed are not available in an older cache, the code falls back to a
 $$
 m_i =
 \begin{cases}
-1, & \operatorname{minFDE}_K > \tau_{\mathrm{FDE}} \\
-0, & \operatorname{minFDE}_K \le \tau_{\mathrm{FDE}}
+1, & \mathrm{minFDE}_K > \tau_{\mathrm{FDE}} \\
+0, & \mathrm{minFDE}_K \le \tau_{\mathrm{FDE}}
 \end{cases}
 $$
 
@@ -223,7 +223,7 @@ Target classification selects the candidate endpoint closest to the ground-truth
 $$
 c^\ast
 = \arg\min_{j}
-\left\lVert c_j - y_T \right\rVert_2
+\left\| c_j - y_T \right\|_2
 $$
 
 The target offset regression term predicts the residual from the selected candidate to the true endpoint:
@@ -234,7 +234,7 @@ $$
 
 $$
 \mathcal{L}_{\mathrm{offset}}
-= \operatorname{SmoothL1}
+= \mathrm{SmoothL1}
 \left(
 \widehat{\Delta}_{c^\ast},
 \Delta^\ast
@@ -245,7 +245,7 @@ Trajectory regression trains the trajectory generated from the ground-truth endp
 
 $$
 \mathcal{L}_{\mathrm{motion}}
-= \operatorname{SmoothL1}
+= \mathrm{SmoothL1}
 \left(
 \hat{Y}_{\mathrm{gt}},
 Y
@@ -258,12 +258,12 @@ $$
 k^\ast
 = \arg\min_k
 \max_{t \in \{1,\ldots,T\}}
-\left\lVert \hat{y}^{(k)}_t - y_t \right\rVert_2^2
+\left\| \hat{y}^{(k)}_t - y_t \right\|_2^2
 $$
 
 $$
 \mathcal{L}_{\mathrm{score}}
-= \operatorname{CrossEntropy}
+= \mathrm{CrossEntropy}
 \left(
 s,
 k^\ast
@@ -274,7 +274,7 @@ Endpoint consistency encourages each generated trajectory endpoint to remain clo
 
 $$
 \mathcal{L}_{\mathrm{endpoint}}
-= \operatorname{SmoothL1}
+= \mathrm{SmoothL1}
 \left(
 \hat{y}^{(k)}_T,
 \hat{c}^{(k)}
