@@ -1,0 +1,169 @@
+checkpoint: runs/tnt_vectornet/best_model.pt
+data_root: F:/IRP/dataset/INTERACTION-Dataset-For-Challenge/recorded_trackfiles
+data_split: val
+map_root: F:/IRP/dataset/INTERACTION-Dataset-For-Challenge/maps
+map_data_split: null
+interaction_root: F:/IRP/dataset/INTERACTION-Dataset-For-Challenge
+use_cache: false
+cache_path: cache/VectorNet/tnt_vectornet_val_11scenes_100m_5k_p96_s30_c2048_reachable_quota_hybrid.pt
+scenes:
+- DR_CHN_Merging_ZS
+- DR_DEU_Merging_MT
+- DR_USA_Intersection_MA
+- DR_USA_Intersection_GL
+- DR_USA_Intersection_EP1
+- DR_USA_Intersection_EP0
+- DR_USA_Roundabout_SR
+- DR_USA_Roundabout_FT
+- DR_USA_Roundabout_EP
+- DR_DEU_Roundabout_OF
+- DR_CHN_Roundabout_LN
+max_files: null
+max_samples: null
+val_cases:
+- name: DR_CHN_Merging_ZS
+  scenes:
+  - DR_CHN_Merging_ZS
+  max_files: null
+  max_samples: null
+  num_plots: 0
+  plot_sample_indices: null
+  plot_track_ids: null
+  summary_plot_view: local
+  include_in_summary: true
+- name: DR_DEU_Merging_MT
+  scenes:
+  - DR_DEU_Merging_MT
+  max_files: null
+  max_samples: null
+  num_plots: 0
+  plot_sample_indices: null
+  plot_track_ids: null
+  summary_plot_view: local
+  include_in_summary: true
+- name: DR_USA_Intersection_MA
+  scenes:
+  - DR_USA_Intersection_MA
+  max_files: null
+  max_samples: null
+  num_plots: 0
+  plot_sample_indices: null
+  plot_track_ids: null
+  summary_plot_view: local
+  include_in_summary: true
+- name: DR_USA_Intersection_GL
+  scenes:
+  - DR_USA_Intersection_GL
+  max_files: null
+  max_samples: null
+  num_plots: 0
+  plot_sample_indices: null
+  plot_track_ids: null
+  summary_plot_view: local
+  include_in_summary: true
+- name: DR_USA_Intersection_EP1
+  scenes:
+  - DR_USA_Intersection_EP1
+  max_files: null
+  max_samples: null
+  num_plots: 0
+  plot_sample_indices: null
+  plot_track_ids: null
+  summary_plot_view: local
+  include_in_summary: true
+- name: DR_USA_Intersection_EP0
+  scenes:
+  - DR_USA_Intersection_EP0
+  max_files: null
+  max_samples: null
+  num_plots: 0
+  plot_sample_indices: null
+  plot_track_ids: null
+  summary_plot_view: local
+  include_in_summary: true
+- name: DR_USA_Roundabout_SR
+  scenes:
+  - DR_USA_Roundabout_SR
+  max_files: null
+  max_samples: null
+  num_plots: 0
+  plot_sample_indices: null
+  plot_track_ids: null
+  summary_plot_view: local
+  include_in_summary: true
+- name: DR_USA_Roundabout_FT
+  scenes:
+  - DR_USA_Roundabout_FT
+  max_files: null
+  max_samples: null
+  num_plots: 0
+  plot_sample_indices: null
+  plot_track_ids: null
+  summary_plot_view: local
+  include_in_summary: true
+- name: DR_USA_Roundabout_EP
+  scenes:
+  - DR_USA_Roundabout_EP
+  max_files: null
+  max_samples: null
+  num_plots: 0
+  plot_sample_indices: null
+  plot_track_ids: null
+  summary_plot_view: local
+  include_in_summary: true
+- name: DR_DEU_Roundabout_OF
+  scenes:
+  - DR_DEU_Roundabout_OF
+  max_files: null
+  max_samples: null
+  num_plots: 0
+  plot_sample_indices: null
+  plot_track_ids: null
+  summary_plot_view: local
+  include_in_summary: true
+- name: DR_CHN_Roundabout_LN
+  scenes:
+  - DR_CHN_Roundabout_LN
+  max_files: null
+  max_samples: null
+  num_plots: 0
+  plot_sample_indices: null
+  plot_track_ids: null
+  summary_plot_view: local
+  include_in_summary: true
+history_steps: null
+future_steps: null
+stride: null
+num_neighbors: null
+sensor_range_m: null
+miss_threshold_m: 2.0
+map_range_m: null
+coordinate_scale_m: null
+include_map: null
+max_map_polylines: null
+max_segments: null
+max_target_candidates: 2048
+target_candidate_spacing_m: 1.0
+target_candidate_nearest_fraction: 0.5
+target_candidate_source: reachable_quota_hybrid
+target_candidate_lateral_offsets_m: [-2.0, -1.0, 0.0, 1.0, 2.0]
+target_candidate_grid_spacing_m: 2.0
+target_candidate_lane_quota: 1024
+target_candidate_grid_quota: 1024
+target_candidate_selection: reachable
+target_candidate_reachable_dt_s: 0.1
+target_candidate_reachable_primary_fraction: 0.6
+tnt_top_m: 50
+tnt_output_k: 6
+trajectory_nms_threshold_m: 1.0
+batch_size: 64
+num_workers: 0
+output_root: runs/tnt_vectornet/val
+run_name: null
+save_dir: runs/tnt_vectornet/val_viz
+num_plots: 0
+plot_sample_indices: null
+plot_track_ids: null
+plot_view: full_map
+lat_origin: 0.0
+lon_origin: 0.0

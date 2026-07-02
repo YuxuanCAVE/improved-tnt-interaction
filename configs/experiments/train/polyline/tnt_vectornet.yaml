@@ -1,0 +1,118 @@
+data_root: F:/IRP/dataset/INTERACTION-Dataset-For-Challenge/recorded_trackfiles
+data_split: train
+map_root: F:/IRP/dataset/INTERACTION-Dataset-For-Challenge/maps
+map_data_split: null
+scenes:
+  - DR_CHN_Merging_ZS
+  - DR_DEU_Merging_MT
+  - DR_USA_Intersection_MA
+  - DR_USA_Intersection_GL
+  - DR_USA_Intersection_EP1
+  - DR_USA_Intersection_EP0
+  - DR_USA_Roundabout_SR
+  - DR_USA_Roundabout_FT
+  - DR_USA_Roundabout_EP
+  - DR_DEU_Roundabout_OF
+  - DR_CHN_Roundabout_LN
+
+max_files: null
+max_samples: null
+samples_per_scene_type: null
+samples_per_scenario: 5000
+
+history_steps: 10
+future_steps: 30
+stride: 10
+num_neighbors: 8
+sensor_range_m: 100.0
+miss_threshold_m: 2.0
+map_range_m: 100.0
+coordinate_scale_m: null
+include_map: true
+include_velocity: true
+max_map_polylines: 96
+max_segments: 30
+max_target_candidates: 2048
+target_candidate_spacing_m: 1.0
+target_candidate_nearest_fraction: 0.5
+target_candidate_source: reachable_quota_hybrid
+target_candidate_lateral_offsets_m: [-2.0, -1.0, 0.0, 1.0, 2.0]
+target_candidate_grid_spacing_m: 2.0
+target_candidate_lane_quota: 1024
+target_candidate_grid_quota: 1024
+target_candidate_selection: reachable
+target_candidate_reachable_dt_s: 0.1
+target_candidate_reachable_primary_fraction: 0.6
+use_cache: true
+cache_path: cache/VectorNet/tnt_vectornet_train_11scenes_100m_5k_p96_s30_c2048_reachable_quota_hybrid.pt
+
+model_type: tnt_vectornet
+architecture: paper
+subgraph_hidden_dim: 64
+subgraph_layers: 3
+graph_dim: 128
+global_graph_layers: 2
+target_hidden_dim: 128
+motion_hidden_dim: 128
+score_hidden_dim: 128
+tnt_top_m: 50
+tnt_output_k: 6
+trajectory_nms_threshold_m: 1.0
+target_offset_limit: 0.05
+use_refined_targets: true
+dropout: 0.1
+predict_offsets: true
+
+target_loss_weight: 0.1
+target_loss_type: soft
+target_soft_label_sigma_m: 1.0
+target_soft_label_radius_m: 3.0
+motion_loss_weight: 1.0
+score_loss_weight: 0.05
+score_temperature: 0.01
+predicted_motion_loss_weight: 0.0
+endpoint_consistency_loss_weight: 1.0
+
+epochs: 150
+batch_size: 128
+lr: 0.001
+weight_decay: 0.0
+lr_scheduler: reduce_on_plateau
+lr_scheduler_monitor: fde_m
+lr_scheduler_factor: 0.5
+lr_scheduler_patience: 6
+lr_scheduler_threshold: 0.001
+lr_scheduler_min_lr: 0.0001
+use_ema: true
+ema_decay: 0.9995
+ema_validation_start_epoch: 1
+loss: huber
+temporal_loss_weighting: none
+val_ratio: 0.2
+split_strategy: official_file
+val_data_split: val
+val_scenes:
+  - DR_CHN_Merging_ZS
+  - DR_DEU_Merging_MT
+  - DR_USA_Intersection_MA
+  - DR_USA_Intersection_GL
+  - DR_USA_Intersection_EP1
+  - DR_USA_Intersection_EP0
+  - DR_USA_Roundabout_SR
+  - DR_USA_Roundabout_FT
+  - DR_USA_Roundabout_EP
+  - DR_DEU_Roundabout_OF
+  - DR_CHN_Roundabout_LN
+val_max_files: null
+val_max_samples: null
+val_samples_per_scene_type: null
+val_samples_per_scenario: 5000
+val_use_cache: true
+val_cache_path: cache/VectorNet/tnt_vectornet_val_11scenes_100m_5k_p96_s30_c2048_reachable_quota_hybrid.pt
+seed: 7
+num_workers: 0
+train_log_interval: 10
+
+output_root: runs/tnt_vectornet/train
+run_name: null
+save_path: runs/tnt_vectornet/best_model.pt
