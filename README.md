@@ -14,22 +14,22 @@ The original research workspace used `src/trajectory_prediction/...` because it 
 
 ```text
 Improved TNT/
-├── improved_tnt/
-│   ├── data/              # INTERACTION polyline dataset and target candidates
-│   ├── engine/            # train/evaluate/checkpoint utilities
-│   ├── losses/            # TNT training loss
-│   ├── models/            # TNT and VectorNet encoder modules
-│   ├── utils/             # config, geometry, I/O, seeding helpers
-│   └── visualization/     # prediction and map plotting
-├── configs/
-│   └── experiments/
-│       ├── train/polyline/tnt_vectornet.yaml
-│       └── val/tnt_vectornet.yaml
-├── scripts/
-│   └── diagnose_target_candidate_oracle.py
-├── precompute_cache.py
-├── train.py
-└── val.py
+|-- improved_tnt/
+|   |-- data/              # INTERACTION polyline dataset and target candidates
+|   |-- engine/            # train/evaluate/checkpoint utilities
+|   |-- losses/            # TNT training loss
+|   |-- models/            # TNT and VectorNet encoder modules
+|   |-- utils/             # config, geometry, I/O, seeding helpers
+|   `-- visualization/     # prediction and map plotting
+|-- configs/
+|   `-- experiments/
+|       |-- train/polyline/tnt_vectornet.yaml
+|       `-- val/tnt_vectornet.yaml
+|-- scripts/
+|   `-- diagnose_target_candidate_oracle.py
+|-- precompute_cache.py
+|-- train.py
+`-- val.py
 ```
 
 Large generated artifacts are intentionally excluded from Git:
@@ -73,142 +73,213 @@ Main implementation files:
 
 ## Metrics
 
-Let a ground-truth future trajectory be:
+Let the ground-truth future trajectory be:
 
-```text
-Y = {y_1, y_2, ..., y_T}, y_t in R^2
-```
+$$
+Y = \{y_1, y_2, \ldots, y_T\}, \qquad y_t \in \mathbb{R}^2
+$$
 
-For a single predicted trajectory:
+For one predicted trajectory:
 
-```text
-Y_hat = {y_hat_1, y_hat_2, ..., y_hat_T}, y_hat_t in R^2
-```
+$$
+\hat{Y} = \{\hat{y}_1, \hat{y}_2, \ldots, \hat{y}_T\}, \qquad \hat{y}_t \in \mathbb{R}^2
+$$
 
-For a multimodal prediction with `K` modes:
+For a multimodal prediction with $K$ modes:
 
-```text
-Y_hat_k = {y_hat_{k,1}, y_hat_{k,2}, ..., y_hat_{k,T}}, k = 1..K
-```
+$$
+\hat{Y}^{(k)} = \{\hat{y}^{(k)}_1, \hat{y}^{(k)}_2, \ldots, \hat{y}^{(k)}_T\}, \qquad k \in \{1,\ldots,K\}
+$$
 
 ### Average Displacement Error
 
 Single-mode ADE:
 
-```text
-ADE = (1 / T) * sum_{t=1}^{T} || y_hat_t - y_t ||_2
-```
+$$
+\operatorname{ADE}
+= \frac{1}{T}\sum_{t=1}^{T}
+\left\lVert \hat{y}_t - y_t \right\rVert_2
+$$
 
 Multimodal minimum ADE:
 
-```text
-minADE_K = min_{k in {1..K}} (1 / T) * sum_{t=1}^{T} || y_hat_{k,t} - y_t ||_2
-```
+$$
+\operatorname{minADE}_K
+= \min_{k \in \{1,\ldots,K\}}
+\frac{1}{T}\sum_{t=1}^{T}
+\left\lVert \hat{y}^{(k)}_t - y_t \right\rVert_2
+$$
 
 ### Final Displacement Error
 
 Single-mode FDE:
 
-```text
-FDE = || y_hat_T - y_T ||_2
-```
+$$
+\operatorname{FDE}
+= \left\lVert \hat{y}_T - y_T \right\rVert_2
+$$
 
 Multimodal minimum FDE:
 
-```text
-minFDE_K = min_{k in {1..K}} || y_hat_{k,T} - y_T ||_2
-```
+$$
+\operatorname{minFDE}_K
+= \min_{k \in \{1,\ldots,K\}}
+\left\lVert \hat{y}^{(k)}_T - y_T \right\rVert_2
+$$
 
 ### Miss Rate
 
-For cached samples that include final heading and speed, validation uses the INTERACTION-style longitudinal/lateral miss rule. Let the final displacement error vector be:
+For samples that include final heading and speed, validation uses the INTERACTION-style longitudinal/lateral miss rule. Define the final displacement error vector:
 
-```text
-d = y_hat_T - y_T
-```
+$$
+d = \hat{y}_T - y_T = (d_x, d_y)
+$$
 
-With ground-truth final yaw `theta`, project the final error into the target heading frame:
+Given the ground-truth final yaw $\theta$, the error is projected into the target heading frame:
 
-```text
-e_long = d_x * cos(theta) + d_y * sin(theta)
-e_lat  = -d_x * sin(theta) + d_y * cos(theta)
-```
+$$
+e_{\mathrm{long}}
+= d_x \cos\theta + d_y \sin\theta
+$$
+
+$$
+e_{\mathrm{lat}}
+= -d_x \sin\theta + d_y \cos\theta
+$$
 
 The lateral threshold is fixed:
 
-```text
-tau_lat = 1.0 m
-```
+$$
+\tau_{\mathrm{lat}} = 1.0\ \mathrm{m}
+$$
 
-The longitudinal threshold depends on final speed `v`:
+The longitudinal threshold depends on the ground-truth final speed $v$:
 
-```text
-tau_long(v) =
-  1.0,                         if v < 1.4 m/s
-  2.0,                         if v > 11.0 m/s
-  1.0 + (v - 1.4) / (11 - 1.4), otherwise
-```
+$$
+\tau_{\mathrm{long}}(v)=
+\begin{cases}
+1.0, & v < 1.4\ \mathrm{m/s} \\
+2.0, & v > 11.0\ \mathrm{m/s} \\
+1.0 + \dfrac{v - 1.4}{11.0 - 1.4}, & \text{otherwise}
+\end{cases}
+$$
 
-A mode is a miss if:
+A predicted mode is counted as a miss when:
 
-```text
-|e_lat| > tau_lat or |e_long| > tau_long(v)
-```
+$$
+\left|e_{\mathrm{lat}}\right| > \tau_{\mathrm{lat}}
+\quad \mathrm{or} \quad
+\left|e_{\mathrm{long}}\right| > \tau_{\mathrm{long}}(v)
+$$
 
-For `K` predicted modes, a sample is counted as a miss only if all modes miss:
+For $K$ predicted modes, a sample is counted as a miss only if all modes miss:
 
-```text
-miss = 1 if every mode misses, otherwise 0
-MR = (1 / N) * sum_{i=1}^{N} miss_i
-```
+$$
+m_i =
+\begin{cases}
+1, & \text{all } K \text{ modes miss} \\
+0, & \text{otherwise}
+\end{cases}
+$$
+
+The miss rate over $N$ validation samples is:
+
+$$
+\operatorname{MR}
+= \frac{1}{N}\sum_{i=1}^{N} m_i
+$$
 
 If final yaw/speed are not available in an older cache, the code falls back to a fixed FDE threshold:
 
-```text
-miss = 1 if minFDE_K > tau_fde
-```
+$$
+m_i =
+\begin{cases}
+1, & \operatorname{minFDE}_K > \tau_{\mathrm{FDE}} \\
+0, & \operatorname{minFDE}_K \le \tau_{\mathrm{FDE}}
+\end{cases}
+$$
 
-The default fallback threshold is `tau_fde = 2.0 m`.
+The default fallback threshold is:
+
+$$
+\tau_{\mathrm{FDE}} = 2.0\ \mathrm{m}
+$$
 
 ## TNT Training Loss
 
-The training objective combines endpoint candidate classification, endpoint offset regression, trajectory regression, trajectory scoring, and endpoint consistency.
+The training objective combines target candidate classification, endpoint offset regression, trajectory regression, trajectory scoring, and endpoint consistency:
 
-```text
-L = w_target * L_target
-  + w_motion * L_motion
-  + w_score * L_score
-  + w_pred_motion * L_pred_motion
-  + w_endpoint * L_endpoint
-```
+$$
+\mathcal{L}
+= \lambda_{\mathrm{target}}\mathcal{L}_{\mathrm{target}}
++ \lambda_{\mathrm{motion}}\mathcal{L}_{\mathrm{motion}}
++ \lambda_{\mathrm{score}}\mathcal{L}_{\mathrm{score}}
++ \lambda_{\mathrm{pred}}\mathcal{L}_{\mathrm{pred}}
++ \lambda_{\mathrm{endpoint}}\mathcal{L}_{\mathrm{endpoint}}
+$$
 
-Target classification selects the candidate closest to the ground-truth final point:
+Target classification selects the candidate endpoint closest to the ground-truth final point:
 
-```text
-c* = argmin_j || c_j - y_T ||_2
-```
+$$
+c^\ast
+= \arg\min_{j}
+\left\lVert c_j - y_T \right\rVert_2
+$$
 
 The target offset regression term predicts the residual from the selected candidate to the true endpoint:
 
-```text
-Delta* = y_T - c*
-L_offset = SmoothL1(Delta_hat_{c*}, Delta*)
-```
+$$
+\Delta^\ast = y_T - c^\ast
+$$
+
+$$
+\mathcal{L}_{\mathrm{offset}}
+= \operatorname{SmoothL1}
+\left(
+\widehat{\Delta}_{c^\ast},
+\Delta^\ast
+\right)
+$$
 
 Trajectory regression trains the trajectory generated from the ground-truth endpoint:
 
-```text
-L_motion = SmoothL1(Y_hat_gt, Y)
-```
+$$
+\mathcal{L}_{\mathrm{motion}}
+= \operatorname{SmoothL1}
+\left(
+\hat{Y}_{\mathrm{gt}},
+Y
+\right)
+$$
 
 Trajectory scoring supervises the generated candidate trajectories using the best-matching trajectory mode:
 
-```text
-k* = argmin_k max_t || y_hat_{k,t} - y_t ||_2^2
-L_score = CrossEntropy(score_logits, k*)
-```
+$$
+k^\ast
+= \arg\min_k
+\max_{t \in \{1,\ldots,T\}}
+\left\lVert \hat{y}^{(k)}_t - y_t \right\rVert_2^2
+$$
 
-Endpoint consistency encourages generated trajectory endpoints to agree with their selected endpoint candidates and with the ground-truth endpoint when teacher forcing is used.
+$$
+\mathcal{L}_{\mathrm{score}}
+= \operatorname{CrossEntropy}
+\left(
+s,
+k^\ast
+\right)
+$$
+
+Endpoint consistency encourages each generated trajectory endpoint to remain close to its selected endpoint candidate:
+
+$$
+\mathcal{L}_{\mathrm{endpoint}}
+= \operatorname{SmoothL1}
+\left(
+\hat{y}^{(k)}_T,
+\hat{c}^{(k)}
+\right)
+$$
 
 ## Setup
 
