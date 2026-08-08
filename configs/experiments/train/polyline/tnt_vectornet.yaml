@@ -1,6 +1,6 @@
-data_root: F:/IRP/dataset/INTERACTION-Dataset-For-Challenge/recorded_trackfiles
+data_root: data/INTERACTION/recorded_trackfiles
 data_split: train
-map_root: F:/IRP/dataset/INTERACTION-Dataset-For-Challenge/maps
+map_root: data/INTERACTION/maps
 map_data_split: null
 scenes:
   - DR_CHN_Merging_ZS
@@ -62,6 +62,7 @@ target_offset_limit: 0.05
 use_refined_targets: true
 dropout: 0.1
 predict_offsets: true
+endpoint_exact_residual: true
 
 target_loss_weight: 0.1
 target_loss_type: soft
@@ -70,6 +71,10 @@ target_soft_label_radius_m: 3.0
 motion_loss_weight: 1.0
 score_loss_weight: 0.05
 score_temperature: 0.01
+score_cost_type: official
+score_ade_weight: 1.0
+score_fde_weight: 2.0
+score_miss_weight: 3.0
 predicted_motion_loss_weight: 0.0
 endpoint_consistency_loss_weight: 1.0
 

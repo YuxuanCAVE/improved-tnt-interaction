@@ -237,8 +237,31 @@ def _train_tnt_batch(
         target_loss_type=str(getattr(args, "target_loss_type", "soft")),
         target_soft_label_sigma_m=float(getattr(args, "target_soft_label_sigma_m", 1.0)),
         target_soft_label_radius_m=float(getattr(args, "target_soft_label_radius_m", 3.0)),
+        score_cost_type=str(getattr(args, "score_cost_type", "max_error")),
+        score_ade_weight=float(getattr(args, "score_ade_weight", 1.0)),
+        score_fde_weight=float(getattr(args, "score_fde_weight", 2.0)),
+        score_miss_weight=float(getattr(args, "score_miss_weight", 3.0)),
+        soft_top1_loss_weight=float(getattr(args, "soft_top1_loss_weight", 0.0)),
+        soft_top1_temperature=float(getattr(args, "soft_top1_temperature", 0.5)),
+        soft_top1_endpoint_weight=float(getattr(args, "soft_top1_endpoint_weight", 1.0)),
+        soft_top1_detach_trajectories=bool(
+            getattr(args, "soft_top1_detach_trajectories", True)
+        ),
     )
-    return loss_fn(pred, target, batch["target_candidates"], batch["candidate_mask"])
+    anchor = batch.get("anchor")
+    final_yaw_local = None
+    final_speed = None
+    if anchor is not None and anchor.shape[-1] >= 5:
+        final_yaw_local = anchor[:, 3] - anchor[:, 2]
+        final_speed = anchor[:, 4]
+    return loss_fn(
+        pred,
+        target,
+        batch["target_candidates"],
+        batch["candidate_mask"],
+        final_yaw_local=final_yaw_local,
+        final_speed=final_speed,
+    )
 
 
 def _train_polyline_batch(
@@ -413,11 +436,16 @@ def _checkpoint_payload(
                 "score_hidden_dim": int(getattr(args, "score_hidden_dim", getattr(args, "decoder_hidden_dim", 128))),
                 "target_offset_limit": float(getattr(args, "target_offset_limit", 0.05)),
                 "use_refined_targets": bool(getattr(args, "use_refined_targets", True)),
+                "endpoint_exact_residual": bool(getattr(args, "endpoint_exact_residual", False)),
                 "trajectory_nms_threshold_m": float(getattr(args, "trajectory_nms_threshold_m", 2.0)),
                 "target_loss_weight": float(getattr(args, "target_loss_weight", 0.1)),
                 "motion_loss_weight": float(getattr(args, "motion_loss_weight", 1.0)),
                 "score_loss_weight": float(getattr(args, "score_loss_weight", 0.1)),
                 "score_temperature": float(getattr(args, "score_temperature", 0.01)),
+                "score_cost_type": str(getattr(args, "score_cost_type", "max_error")),
+                "score_ade_weight": float(getattr(args, "score_ade_weight", 1.0)),
+                "score_fde_weight": float(getattr(args, "score_fde_weight", 2.0)),
+                "score_miss_weight": float(getattr(args, "score_miss_weight", 3.0)),
                 "predicted_motion_loss_weight": float(getattr(args, "predicted_motion_loss_weight", 0.0)),
                 "endpoint_consistency_loss_weight": float(
                     getattr(args, "endpoint_consistency_loss_weight", 1.0)

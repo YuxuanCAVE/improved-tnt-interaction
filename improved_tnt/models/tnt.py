@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import torch
 from torch import nn
@@ -53,10 +53,12 @@ class TNTMotionEstimation(nn.Module):
         hidden_dim: int = 128,
         dropout: float = 0.1,
         predict_offsets: bool = False,
+        endpoint_exact_residual: bool = False,
     ) -> None:
         super().__init__()
         self.future_steps = int(future_steps)
         self.predict_offsets = bool(predict_offsets)
+        self.endpoint_exact_residual = bool(endpoint_exact_residual)
         self.decoder = nn.Sequential(
             nn.Linear(graph_dim + 2, hidden_dim),
             nn.LayerNorm(hidden_dim),
@@ -82,6 +84,16 @@ class TNTMotionEstimation(nn.Module):
         pred = pred.view(batch_size, num_targets, self.future_steps, 2)
         if self.predict_offsets:
             pred = torch.cumsum(pred, dim=2)
+        if self.endpoint_exact_residual:
+            progress = torch.linspace(
+                1.0 / self.future_steps,
+                1.0,
+                self.future_steps,
+                device=pred.device,
+                dtype=pred.dtype,
+            ).view(1, 1, self.future_steps, 1)
+            endpoint_correction = endpoints - pred[:, :, -1]
+            pred = pred + progress * endpoint_correction.unsqueeze(2)
         return pred[:, 0] if squeeze else pred
 
 
@@ -131,6 +143,7 @@ class TNTVectorNet(nn.Module):
         architecture: str = "paper",
         use_refined_targets: bool = True,
         trajectory_nms_threshold: float = 0.02,
+        endpoint_exact_residual: bool = False,
     ) -> None:
         super().__init__()
         self.future_steps = int(future_steps)
@@ -169,6 +182,7 @@ class TNTVectorNet(nn.Module):
             hidden_dim=motion_hidden_dim,
             dropout=dropout,
             predict_offsets=predict_offsets,
+            endpoint_exact_residual=endpoint_exact_residual,
         )
         self.trajectory_scoring = TNTTrajectoryScoring(
             graph_dim,
@@ -288,6 +302,7 @@ class TNTVectorNet(nn.Module):
 
         output = {
             "prediction": pred,
+            "target_feature": target_feature,
             "target_logits": target_logits,
             "target_offsets": target_offsets,
             "refined_targets": refined_targets,
@@ -322,6 +337,7 @@ def build_tnt_model(
     architecture: str = "paper",
     use_refined_targets: bool = True,
     trajectory_nms_threshold: float = 0.02,
+    endpoint_exact_residual: bool = False,
 ) -> TNTVectorNet:
     return TNTVectorNet(
         input_dim=input_dim,
@@ -341,4 +357,5 @@ def build_tnt_model(
         architecture=architecture,
         use_refined_targets=use_refined_targets,
         trajectory_nms_threshold=trajectory_nms_threshold,
+        endpoint_exact_residual=endpoint_exact_residual,
     )

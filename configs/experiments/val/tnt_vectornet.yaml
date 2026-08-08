@@ -1,10 +1,10 @@
 checkpoint: runs/tnt_vectornet/best_model.pt
-data_root: F:/IRP/dataset/INTERACTION-Dataset-For-Challenge/recorded_trackfiles
+data_root: data/INTERACTION/recorded_trackfiles
 data_split: val
-map_root: F:/IRP/dataset/INTERACTION-Dataset-For-Challenge/maps
+map_root: data/INTERACTION/maps
 map_data_split: null
-interaction_root: F:/IRP/dataset/INTERACTION-Dataset-For-Challenge
-use_cache: false
+interaction_root: data/INTERACTION
+use_cache: true
 cache_path: cache/VectorNet/tnt_vectornet_val_11scenes_100m_5k_p96_s30_c2048_reachable_quota_hybrid.pt
 scenes:
 - DR_CHN_Merging_ZS

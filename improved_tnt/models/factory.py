@@ -44,6 +44,7 @@ def build_model_for_dataset(args: Namespace, dataset: Any) -> nn.Module:
             predict_offsets=bool(getattr(args, "predict_offsets", False)),
             architecture=str(getattr(args, "architecture", "paper")),
             use_refined_targets=bool(getattr(args, "use_refined_targets", True)),
+            endpoint_exact_residual=bool(getattr(args, "endpoint_exact_residual", False)),
             trajectory_nms_threshold=float(getattr(args, "trajectory_nms_threshold_m", 2.0))
             / max(float(getattr(dataset, "coordinate_scale_m", getattr(args, "sensor_range_m", 1.0))), 1e-6),
         )

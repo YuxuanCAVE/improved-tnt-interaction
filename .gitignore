@@ -9,10 +9,10 @@ __pycache__/
 venv/
 env/
 
-cache/
-runs/
-data/
-datasets/
+/cache/
+/runs/
+/data/
+/datasets/
 *.pt
 *.pth
 *.ckpt

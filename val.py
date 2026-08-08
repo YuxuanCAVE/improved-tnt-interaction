@@ -101,6 +101,7 @@ def _build_tnt_checkpoint_model(checkpoint: dict, device: torch.device) -> nn.Mo
         predict_offsets=bool(ckpt_args.get("predict_offsets", False)),
         architecture=str(ckpt_args.get("architecture", checkpoint.get("architecture", "paper"))),
         use_refined_targets=bool(ckpt_args.get("use_refined_targets", True)),
+        endpoint_exact_residual=bool(ckpt_args.get("endpoint_exact_residual", False)),
         trajectory_nms_threshold=float(ckpt_args.get("trajectory_nms_threshold_m", 2.0))
         / max(
             float(
@@ -115,6 +116,11 @@ def _build_tnt_checkpoint_model(checkpoint: dict, device: torch.device) -> nn.Mo
     model.load_state_dict(checkpoint["model_state"], strict=False)
     model.eval()
     return model
+
+
+def _build_polyline_checkpoint_model(checkpoint: dict, device: torch.device) -> nn.Module:
+    """Compatibility name used by the staged TNT refinement scripts."""
+    return _build_tnt_checkpoint_model(checkpoint, device)
 
 
 def _loss_fn(checkpoint: dict) -> nn.Module:

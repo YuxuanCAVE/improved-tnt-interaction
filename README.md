@@ -1,336 +1,215 @@
 # Improved TNT for Trajectory Prediction on the INTERACTION Dataset
 
-This repository contains a focused TNT/VectorNet trajectory prediction pipeline for the INTERACTION dataset. It keeps only the TNT-related model, loss, polyline data processing, training, validation, cache generation, and visualization code.
+This repository contains the TNT/VectorNet trajectory-prediction pipeline developed for a scenario-based automated-driving research project. The implementation predicts multiple plausible vehicle trajectories from target history, neighbouring agents, and high-definition map polylines in the INTERACTION dataset.
 
-## Repository Name
+The main adaptation is not a replacement backbone. It improves the endpoint-candidate stage that drives TNT, then adds endpoint-consistent motion decoding and a guarded deterministic refinement path.
 
-Recommended GitHub repository name: `improved-tnt-interaction`.
+## Results
 
-Recommended display title: `Improved TNT for Trajectory Prediction on the INTERACTION Dataset`.
+Results below use 38,401 precomputed INTERACTION validation cases and the official longitudinal/lateral miss definition.
 
-## Project Structure
+| Output | minADE (m) | minFDE (m) | MR |
+|---|---:|---:|---:|
+| Final TNT, deterministic T3+T6 output | 0.2875 | 0.8962 | 0.2063 |
+| Final TNT, six trajectories | **0.1928** | **0.4978** | **0.0330** |
 
-The original research workspace used `src/trajectory_prediction/...` because it contained several trajectory prediction families. This split repository is TNT-only, so the package has been simplified to `improved_tnt/...`.
+The deterministic and six-mode results are not directly interchangeable: the first tests the single selected future, while the second measures whether any of six plausible futures matches the observed outcome.
+
+## Model Pipeline
+
+The model retains the staged structure of TNT: scene encoding, target prediction, endpoint-conditioned motion estimation, trajectory scoring, and Top-K selection.
+
+![Map-based overview of the improved TNT prediction pipeline](docs/images/model_pipeline.png)
+
+1. **Model input and context encoding:** vehicle histories and HD-map elements inside a 100 m local range are represented as polylines and encoded with VectorNet.
+2. **Candidate generation:** lane-derived candidates, a local grid, and lateral offsets provide broad endpoint coverage.
+3. **Target prediction:** candidates are scored and refined with learned offsets.
+4. **Motion estimation:** a trajectory is decoded for each selected endpoint.
+5. **Trajectory selection:** candidate trajectories are ranked and filtered with trajectory NMS.
+6. **Top-K output:** the highest-ranked distinct trajectories are returned.
+
+## Main Adaptations
+
+### Reachability-informed hybrid endpoint candidates
+
+The candidate pool combines:
+
+- lane-derived samples from the INTERACTION map;
+- local-grid samples for off-centre and weakly mapped regions;
+- lateral offsets around lane-derived candidates;
+- source quotas to preserve both map guidance and spatial coverage;
+- speed- and horizon-dependent reachability prioritisation.
+
+The reachability term is a soft prioritisation mechanism, not a formally computed vehicle-dynamics reachable set. It discourages implausibly distant candidates without removing all alternatives required for complex intersections and roundabouts.
+
+![Lane, grid, hybrid, and reachability-informed endpoint candidates](docs/images/candidate_generation.png)
+
+### Target supervision and endpoint refinement
+
+The target head uses soft spatial labels around the observed endpoint rather than treating only one discretised candidate as correct. It also predicts a continuous offset for each candidate. Together, these terms reduce sensitivity to candidate spacing and preserve nearby plausible targets.
+
+### Endpoint-exact motion decoding
+
+The motion decoder predicts future displacements conditioned on a refined endpoint. An endpoint residual is distributed across the decoded sequence so that the final trajectory position is consistent with the endpoint supplied to the decoder.
+
+### Metric-aligned scoring
+
+The trajectory-scoring objective can use an official-metric-aligned cost that combines ADE, FDE, and the INTERACTION miss condition. This makes the ranking objective more consistent with the evaluation used by the challenge.
+
+### Guarded deterministic refinement
+
+The final deterministic path computes a score-weighted trajectory and passes it through a lightweight T6 residual refiner conditioned on the shared scene context. A guarded joint fine-tuning stage updates the global context graph and target predictor only when the six-mode MR remains within a configured tolerance. This improves the single-output result without discarding TNT's multimodal capability.
+
+## INTERACTION Scenarios
+
+The project evaluates merging, intersection, and roundabout environments across the eleven vehicle-prediction scenarios used by the INTERACTION challenge.
+
+![Examples of merging, intersection, and roundabout scenarios](docs/images/interaction_scenarios.png)
+
+## Repository Structure
 
 ```text
-Improved TNT/
+.
 |-- improved_tnt/
-|   |-- data/              # INTERACTION polyline dataset and target candidates
-|   |-- engine/            # train/evaluate/checkpoint utilities
-|   |-- losses/            # TNT training loss
-|   |-- models/            # TNT and VectorNet encoder modules
-|   |-- utils/             # config, geometry, I/O, seeding helpers
-|   `-- visualization/     # prediction and map plotting
+|   |-- data/              # INTERACTION loading, polyline construction, candidates
+|   |-- engine/            # training, validation, and official metrics
+|   |-- losses/            # TNT target, motion, scoring, and consistency losses
+|   |-- models/            # TNT, VectorNet, and deterministic T6 refiner
+|   |-- utils/             # configuration, geometry, I/O, and seeding
+|   `-- visualization/     # map and prediction plotting
 |-- configs/
-|   `-- experiments/
-|       |-- train/polyline/tnt_vectornet.yaml
-|       `-- val/tnt_vectornet.yaml
+|   `-- experiments/       # train and validation YAML files
 |-- scripts/
-|   `-- diagnose_target_candidate_oracle.py
+|   |-- diagnose_target_candidate_oracle.py
+|   |-- train_tnt_weighted_refiner.py
+|   |-- joint_finetune_tnt_k1_guarded.py
+|   `-- evaluate_tnt_final_results.py
+|-- tests/
+|-- docs/images/
 |-- precompute_cache.py
 |-- train.py
 `-- val.py
 ```
 
-Large generated artifacts are intentionally excluded from Git:
-
-- `cache/`
-- `runs/`
-- model checkpoints such as `*.pt`
-- local dataset folders
-
-## Model Overview
-
-The model follows the TNT idea: encode the scene as polylines, score endpoint candidates, generate a trajectory for selected endpoints, and rank the generated trajectories.
-
-```mermaid
-flowchart TD
-    A["INTERACTION tracks and lane maps"] --> B["Polyline dataset"]
-    B --> C["Agent polylines"]
-    B --> D["Map polylines"]
-    B --> E["Target endpoint candidates"]
-    C --> F["Polyline subgraph encoder"]
-    D --> F
-    F --> G["Global attention graph"]
-    G --> H["Target agent context"]
-    H --> I["Target prediction head"]
-    E --> I
-    I --> J["Top-M refined target endpoints"]
-    H --> K["Motion estimation head"]
-    J --> K
-    K --> L["Candidate future trajectories"]
-    H --> M["Trajectory scoring head"]
-    L --> M
-    M --> N["Top-K predicted trajectories"]
-```
-
-Main implementation files:
-
-- `improved_tnt/models/tnt.py`: TNT target prediction, motion estimation, and trajectory scoring.
-- `improved_tnt/models/vectornet.py`: VectorNet polyline encoders used by TNT.
-- `improved_tnt/data/polyline.py`: INTERACTION polyline features and target-candidate generation.
-- `improved_tnt/losses/tnt_loss.py`: TNT multi-part training loss.
-
-## Metrics
-
-Let the ground-truth future trajectory be:
-
-$$
-Y = \{y_1, y_2, \ldots, y_T\}, \qquad y_t \in \mathbb{R}^2
-$$
-
-For one predicted trajectory:
-
-$$
-\hat{Y} = \{\hat{y}_1, \hat{y}_2, \ldots, \hat{y}_T\}, \qquad \hat{y}_t \in \mathbb{R}^2
-$$
-
-For a multimodal prediction with $K$ modes:
-
-$$
-\hat{Y}^{(k)} = \{\hat{y}^{(k)}_1, \hat{y}^{(k)}_2, \ldots, \hat{y}^{(k)}_T\}, \qquad k \in \{1,\ldots,K\}
-$$
-
-### Average Displacement Error
-
-Single-mode ADE:
-
-$$
-\mathrm{ADE}
-= \frac{1}{T}\sum_{t=1}^{T}
-\left\| \hat{y}_t - y_t \right\|_2
-$$
-
-Multimodal minimum ADE:
-
-$$
-\mathrm{minADE}_K
-= \min_{k \in \{1,\ldots,K\}}
-\frac{1}{T}\sum_{t=1}^{T}
-\left\| \hat{y}^{(k)}_t - y_t \right\|_2
-$$
-
-### Final Displacement Error
-
-Single-mode FDE:
-
-$$
-\mathrm{FDE}
-= \left\| \hat{y}_T - y_T \right\|_2
-$$
-
-Multimodal minimum FDE:
-
-$$
-\mathrm{minFDE}_K
-= \min_{k \in \{1,\ldots,K\}}
-\left\| \hat{y}^{(k)}_T - y_T \right\|_2
-$$
-
-### Miss Rate
-
-For samples that include final heading and speed, validation uses the INTERACTION-style longitudinal/lateral miss rule. Define the final displacement error vector:
-
-$$
-d = \hat{y}_T - y_T = (d_x, d_y)
-$$
-
-Given the ground-truth final yaw $\theta$, the error is projected into the target heading frame:
-
-$$
-e_{\mathrm{long}}
-= d_x \cos\theta + d_y \sin\theta
-$$
-
-$$
-e_{\mathrm{lat}}
-= -d_x \sin\theta + d_y \cos\theta
-$$
-
-The lateral threshold is fixed:
-
-$$
-\tau_{\mathrm{lat}} = 1.0\ \mathrm{m}
-$$
-
-The longitudinal threshold depends on the ground-truth final speed $v$:
-
-$$
-\tau_{\mathrm{long}}(v)=
-\begin{cases}
-1.0, & v < 1.4\ \mathrm{m/s} \\
-2.0, & v > 11.0\ \mathrm{m/s} \\
-1.0 + \dfrac{v - 1.4}{11.0 - 1.4}, & \text{otherwise}
-\end{cases}
-$$
-
-A predicted mode is counted as a miss when:
-
-$$
-\left|e_{\mathrm{lat}}\right| > \tau_{\mathrm{lat}}
-\quad \mathrm{or} \quad
-\left|e_{\mathrm{long}}\right| > \tau_{\mathrm{long}}(v)
-$$
-
-For $K$ predicted modes, a sample is counted as a miss only if all modes miss:
-
-$$
-m_i =
-\begin{cases}
-1, & \text{all } K \text{ modes miss} \\
-0, & \text{otherwise}
-\end{cases}
-$$
-
-The miss rate over $N$ validation samples is:
-
-$$
-\mathrm{MR}
-= \frac{1}{N}\sum_{i=1}^{N} m_i
-$$
-
-If final yaw/speed are not available in an older cache, the code falls back to a fixed FDE threshold:
-
-$$
-m_i =
-\begin{cases}
-1, & \mathrm{minFDE}_K > \tau_{\mathrm{FDE}} \\
-0, & \mathrm{minFDE}_K \le \tau_{\mathrm{FDE}}
-\end{cases}
-$$
-
-The default fallback threshold is:
-
-$$
-\tau_{\mathrm{FDE}} = 2.0\ \mathrm{m}
-$$
-
-## TNT Training Loss
-
-The training objective combines target candidate classification, endpoint offset regression, trajectory regression, trajectory scoring, and endpoint consistency:
-
-$$
-\mathcal{L}
-= \lambda_{\mathrm{target}}\mathcal{L}_{\mathrm{target}}
-+ \lambda_{\mathrm{motion}}\mathcal{L}_{\mathrm{motion}}
-+ \lambda_{\mathrm{score}}\mathcal{L}_{\mathrm{score}}
-+ \lambda_{\mathrm{pred}}\mathcal{L}_{\mathrm{pred}}
-+ \lambda_{\mathrm{endpoint}}\mathcal{L}_{\mathrm{endpoint}}
-$$
-
-Target classification selects the candidate endpoint closest to the ground-truth final point:
-
-$$
-c^\ast
-= \arg\min_{j}
-\left\| c_j - y_T \right\|_2
-$$
-
-The target offset regression term predicts the residual from the selected candidate to the true endpoint:
-
-$$
-\Delta^\ast = y_T - c^\ast
-$$
-
-$$
-\mathcal{L}_{\mathrm{offset}}
-= \mathrm{SmoothL1}
-\left(
-\widehat{\Delta}_{c^\ast},
-\Delta^\ast
-\right)
-$$
-
-Trajectory regression trains the trajectory generated from the ground-truth endpoint:
-
-$$
-\mathcal{L}_{\mathrm{motion}}
-= \mathrm{SmoothL1}
-\left(
-\hat{Y}_{\mathrm{gt}},
-Y
-\right)
-$$
-
-Trajectory scoring supervises the generated candidate trajectories using the best-matching trajectory mode:
-
-$$
-k^\ast
-= \arg\min_k
-\max_{t \in \{1,\ldots,T\}}
-\left\| \hat{y}^{(k)}_t - y_t \right\|_2^2
-$$
-
-$$
-\mathcal{L}_{\mathrm{score}}
-= \mathrm{CrossEntropy}
-\left(
-s,
-k^\ast
-\right)
-$$
-
-Endpoint consistency encourages each generated trajectory endpoint to remain close to its selected endpoint candidate:
-
-$$
-\mathcal{L}_{\mathrm{endpoint}}
-= \mathrm{SmoothL1}
-\left(
-\hat{y}^{(k)}_T,
-\hat{c}^{(k)}
-\right)
-$$
+Generated datasets, caches, runs, and checkpoints are excluded from Git.
 
 ## Setup
 
-Install Python dependencies:
+Python 3.10 or later is recommended.
+
+```bash
+python -m venv .venv
+```
+
+Activate the environment and install the dependencies:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-Install a PyTorch build that matches your CUDA version if GPU training is needed.
+For GPU training, install the PyTorch build appropriate for the local CUDA version.
 
 ## Dataset
 
-Download the INTERACTION dataset separately and update these paths in the YAML configs:
+Download the INTERACTION dataset separately. The expected challenge layout is:
 
-```yaml
-data_root: F:/IRP/dataset/INTERACTION-Dataset-For-Challenge/recorded_trackfiles
-map_root: F:/IRP/dataset/INTERACTION-Dataset-For-Challenge/maps
+```text
+recorded_trackfiles/
+|-- DR_CHN_Merging_ZS/
+|   |-- train/
+|   `-- val/
+`-- ...
+
+maps/
+|-- DR_CHN_Merging_ZS.osm
+`-- ...
 ```
 
-The dataset is not included in this repository.
+Update the portable paths in the YAML files:
 
-## Precompute Caches
+```yaml
+data_root: path/to/recorded_trackfiles
+map_root: path/to/maps
+```
 
-The default training config uses tensor caches. Build train and validation caches with:
+The INTERACTION data and trained model weights are not distributed in this repository.
+
+## Quick Start
+
+### 1. Precompute train and validation caches
 
 ```bash
 python precompute_cache.py --config configs/experiments/train/polyline/tnt_vectornet.yaml
 ```
 
-The cache paths are configured as:
-
-```yaml
-cache_path: cache/VectorNet/tnt_vectornet_train_11scenes_100m_5k_p96_s30_c2048_reachable_quota_hybrid.pt
-val_cache_path: cache/VectorNet/tnt_vectornet_val_11scenes_100m_5k_p96_s30_c2048_reachable_quota_hybrid.pt
-```
-
-## Train
+### 2. Train the TNT/VectorNet model
 
 ```bash
 python train.py --config configs/experiments/train/polyline/tnt_vectornet.yaml
 ```
 
-Training outputs are written under `runs/tnt_vectornet/train/`.
+The default configuration uses:
 
-## Validate
+- 1 s observation history and 3 s future horizon at 10 Hz;
+- 100 m agent and map context;
+- 2,048 reachability-informed hybrid endpoint candidates;
+- 50 decoded candidate modes and six retained trajectories;
+- soft target labels, endpoint offsets, and endpoint-exact decoding.
 
-Update `checkpoint` in `configs/experiments/val/tnt_vectornet.yaml`, then run:
+### 3. Validate a checkpoint
+
+Set `checkpoint` and cache paths in `configs/experiments/val/tnt_vectornet.yaml`, then run:
 
 ```bash
 python val.py --config configs/experiments/val/tnt_vectornet.yaml
 ```
 
-Validation outputs are written under `runs/tnt_vectornet/val/`.
+### 4. Train and evaluate the optional deterministic refinement
+
+The staged refinement scripts require a trained TNT checkpoint and the same precomputed train/validation caches:
+
+```bash
+python scripts/train_tnt_weighted_refiner.py \
+  --checkpoint path/to/tnt_checkpoint.pt \
+  --train-cache path/to/train_cache.pt \
+  --val-cache path/to/val_cache.pt \
+  --output-dir runs/t6_refiner
+```
+
+```bash
+python scripts/joint_finetune_tnt_k1_guarded.py \
+  --t3-checkpoint path/to/tnt_checkpoint.pt \
+  --t6-checkpoint runs/t6_refiner/best_t6_refiner.pt \
+  --train-cache path/to/train_cache.pt \
+  --val-cache path/to/val_cache.pt \
+  --output-dir runs/guarded_joint
+```
+
+Use `--help` on either script for the complete optimisation and guardrail options.
+
+## Evaluation Metrics
+
+Validation reports the INTERACTION single-agent metrics:
+
+- **minADE:** minimum mean Euclidean displacement error over the predicted modes;
+- **minFDE:** minimum final Euclidean displacement error over the predicted modes;
+- **MR:** a case is missed only when every mode exceeds the official final longitudinal or lateral threshold.
+
+The lateral threshold is 1 m. The longitudinal threshold increases from 1 m to 2 m as final ground-truth speed increases from 1.4 m/s to 11 m/s. Implementations are provided in `improved_tnt/engine/official_metrics.py`.
+
+## Tests
+
+```bash
+python -m pytest -q
+```
+
+The included tests cover the official metrics, endpoint-exact decoder, weighted T6 refiner, and guarded fine-tuning condition.
+
+## References
+
+- H. Zhao et al., [TNT: Target-driveN Trajectory Prediction](https://arxiv.org/abs/2008.08294), CoRL 2020.
+- W. Zhan et al., [INTERACTION Dataset: An INTERnational, Adversarial and Cooperative moTION Dataset in Interactive Driving Scenarios with Semantic Maps](https://arxiv.org/abs/1910.03088), 2019.
+
+## License
+
+This repository is released under the Apache License 2.0. The INTERACTION dataset and any third-party assets remain subject to their respective licences.
